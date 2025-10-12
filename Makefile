@@ -1,25 +1,30 @@
-COMPOSE = docker compose -f srcs/docker-compose.yml --env-file srcs/.env
+# **************************************************************************** #
+#                                                                              #
+#                                                         :::      ::::::::    #
+#    Makefile                                           :+:      :+:    :+:    #
+#                                                     +:+ +:+         +:+      #
+#    By: ayhan <ayhan@student.42.fr>            +#+  +:+       +#+         #
+#                                                 +#+#+#+#+#+   +#+            #
+#    Created: 2023/01/01 14:18:11 by ayhan           #+#    #+#              #
+#    Updated: 2023/01/07 01:59:32 by ayhan          ###   ########.fr        #
+#                                                                              #
+# **************************************************************************** #
 
-all: up
 
-up:
-	@mkdir -p /home/$$(grep LOGIN srcs/.env | cut -d= -f2)/data/db
-	@mkdir -p /home/$$(grep LOGIN srcs/.env | cut -d= -f2)/data/wp
-	$(COMPOSE) up -d --build
 
-down:
-	$(COMPOSE) down
+all : up
 
-build:
-	$(COMPOSE) build --no-cache
+up : 
+	@docker-compose -f ./srcs/docker-compose.yml up -d
 
-logs:
-	$(COMPOSE) logs -f --tail=100
+down : 
+	@docker-compose -f ./srcs/docker-compose.yml down
 
-clean:
-	$(COMPOSE) down -v
+stop : 
+	@docker-compose -f ./srcs/docker-compose.yml stop
 
-fclean: clean
-	docker system prune -af
+start : 
+	@docker-compose -f ./srcs/docker-compose.yml start
 
-re: fclean all
+status : 
+	@docker ps

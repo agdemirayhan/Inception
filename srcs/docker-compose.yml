@@ -1,100 +1,46 @@
-version: "3.9"
-
-name: inception
-
-secrets:
-  db_root_password:
-    file: ../secrets/db_root_password.txt
-  db_password:
-    file: ../secrets/db_password.txt
-  credentials:
-    file: ../secrets/credentials.txt
-
-networks:
-  inception-net:
+# version: "3.5"
 
 volumes:
-  db_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${HOST_DATA}/db
-  wp_data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${HOST_DATA}/wp
-
+  dbdata:
+  wpdata:
 
 services:
   mariadb:
-    container_name: mariadb
-    build:
-      context: ./requirements/mariadb
-      args:
-        DEBIAN_VERSION: ${DEBIAN_VERSION}
-    image: mariadb:${MARIADB_VERSION}-local
-    restart: always
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-    secrets:
-      - db_password
-      - db_root_password
+    build: ./requirements/mariadb
     volumes:
-      - "${USERPROFILE}/data/db:/var/lib/mysql"
-    networks:
-      - inception-net
-    healthcheck:
-      test: ["CMD-SHELL","mysqladmin ping -h 127.0.0.1 -uroot -p$$(cat /run/secrets/db_root_password) || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - dbdata:/var/lib/mysql
+    environment:
+      MARIADB_ROOT_PASSWORD: change_me
+      MARIADB_DATABASE: wp_db
+      MARIADB_USER: wp_user
+      MARIADB_PASSWORD: wp_pass
+      MARIADB_AUTO_UPGRADE: "1"
+    restart: always
+    ports:
+      - "127.0.0.1:3306:3306"
 
-  wp-php:
-    container_name: wp-php
-    build:
-      context: ./requirements/wordpress
-      args:
-        DEBIAN_VERSION: ${DEBIAN_VERSION}
-        PHP_VERSION: ${PHP_VERSION}
-    image: wordpress-php:${PHP_VERSION}-local
-    restart: always
-    environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      WP_TITLE: ${WP_TITLE}
-      WP_ADMIN_USER: ${WP_ADMIN_USER}
-      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
-      WP_URL: ${WP_URL}
+  wordpress:
+    build: ./requirements/wordpress
     depends_on:
-      mariadb:
-        condition: service_healthy
-    secrets:
-      - db_password
-      - credentials
+      - mariadb
     volumes:
-      - "${USERPROFILE}/data/wp:/var/www/html"
-    networks:
-      - inception-net
+      - wpdata:/var/www/html
+    environment:
+      WORDPRESS_DB_HOST: mariadb:3306
+      WORDPRESS_DB_NAME: wp_db
+      WORDPRESS_DB_USER: wp_user
+      WORDPRESS_DB_PASSWORD: wp_pass
+    restart: always
 
   nginx:
-    container_name: nginx
-    build:
-      context: ./requirements/nginx
-      args:
-        DEBIAN_VERSION: ${DEBIAN_VERSION}
-    image: nginx:${NGINX_VERSION}-local
-    restart: always
+    build: ./requirements/nginx
     depends_on:
-      - wp-php
-    environment:
-      DOMAIN_NAME: ${DOMAIN_NAME}
+      - wordpress
     ports:
-      - "443:443"
+      - "127.0.0.1:443:443"
+      - "127.0.0.1:80:80"
     volumes:
-      - "${USERPROFILE}/data/wp:/var/www/html:ro"
-    networks:
-      - inception-net
+      - wpdata:/var/www/html:ro 
+      - ./requirements/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./requirements/nginx/certs:/etc/nginx/certs:ro
+    restart: always
