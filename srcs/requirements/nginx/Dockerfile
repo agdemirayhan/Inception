@@ -1,21 +1,10 @@
-ARG DEBIAN_VERSION=bookworm
-FROM debian:${DEBIAN_VERSION}
+# requirements/nginx/Dockerfile
+FROM debian:bookworm-slim
 
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nginx openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y nginx openssl && rm -rf /var/lib/apt/lists/*
-
-# self-signed sertifika (gerekirse gerçek sertifika ile değiştir)
-RUN mkdir -p /etc/nginx/ssl && \
-    openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
-    -keyout /etc/nginx/ssl/selfsigned.key \
-    -out /etc/nginx/ssl/selfsigned.crt \
-    -subj "/CN=localhost"
-
-COPY conf/default.conf /etc/nginx/conf.d/default.conf
-
-# docroot wordpress volume ile paylaşılacak
-WORKDIR /var/www/html
-EXPOSE 443
-
-# PID1 olarak nginx master
+STOPSIGNAL SIGQUIT
+EXPOSE 80 443
 CMD ["nginx","-g","daemon off;"]

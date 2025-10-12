@@ -1,15 +1,12 @@
-ARG DEBIAN_VERSION=bookworm
-FROM debian:${DEBIAN_VERSION}
+# requirements/mariadb/Dockerfile
+FROM mariadb:11
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y mariadb-server procps && rm -rf /var/lib/apt/lists/*
+# (İsteğe bağlı) kendi MariaDB konfiginiz
+# Not: Dosya adını açıkça veriyoruz
+COPY ./tools/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
 
-COPY conf/50-server.cnf /etc/mysql/mariadb.conf.d/50-server.cnf
+# (İsteğe bağlı) ilk kurulum SQL dosyalarınız varsa:
+# COPY ./tools/initdb/*.sql /docker-entrypoint-initdb.d/
 
-# Entrypoint scripti (az önce oluşturduğumuz dosya)
-COPY tools/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
-VOLUME ["/var/lib/mysql"]
-EXPOSE 3306
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+# ÖNEMLİ: CMD/ENTRYPOINT EKLEME!
+# Resmi imaj zaten doğru entrypoint (docker-entrypoint.sh) ve CMD (mysqld) ile geliyor.
