@@ -1,21 +1,15 @@
-# version: "3.5"
-
-volumes:
-  dbdata:
-  wpdata:
-
+# docker-compose.yml  (sekme yok, 2 boşluk girinti)
 services:
   mariadb:
     build: ./requirements/mariadb
+    restart: always
     volumes:
       - dbdata:/var/lib/mysql
     environment:
-      MARIADB_ROOT_PASSWORD: change_me
-      MARIADB_DATABASE: wp_db
-      MARIADB_USER: wp_user
-      MARIADB_PASSWORD: wp_pass
-      MARIADB_AUTO_UPGRADE: "1"
-    restart: always
+      MARIADB_DATABASE: ${MYSQL_DATABASE}
+      MARIADB_USER: ${MYSQL_USER}
+      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
       - "127.0.0.1:3306:3306"
 
@@ -23,24 +17,36 @@ services:
     build: ./requirements/wordpress
     depends_on:
       - mariadb
+    restart: always
     volumes:
       - wpdata:/var/www/html
     environment:
-      WORDPRESS_DB_HOST: mariadb:3306
-      WORDPRESS_DB_NAME: wp_db
-      WORDPRESS_DB_USER: wp_user
-      WORDPRESS_DB_PASSWORD: wp_pass
-    restart: always
+      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
+      WP_URL: ${WP_URL}
+      WP_TITLE: ${WP_TITLE}
+      WP_ADMIN_USER: ${WP_ADMIN_USER}
+      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD}
+      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
+      WP_USER: ${WP_USER}
+      WP_USER_PASSWORD: ${WP_USER_PASSWORD}
+      WP_USER_EMAIL: ${WP_USER_EMAIL}
 
   nginx:
     build: ./requirements/nginx
     depends_on:
       - wordpress
-    ports:
-      - "127.0.0.1:443:443"
-      - "127.0.0.1:80:80"
-    volumes:
-      - wpdata:/var/www/html:ro 
-      - ./requirements/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./requirements/nginx/certs:/etc/nginx/certs:ro
     restart: always
+    ports:
+      - "80:80"
+      # - "443:443"
+    volumes:
+      - wpdata:/var/www/html:ro
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME}
+
+volumes:
+  dbdata:
+  wpdata:

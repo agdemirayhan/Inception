@@ -1,72 +1,61 @@
-#!/usr/bin/env bash
-set -e
+#!/usr/bin/env sh
+set -euo pipefail
 
-DOCROOT="/var/www/html"
-DB_HOST="mariadb"
-DB_PORT="3306"
+# Varsayılanlar
+: "${WP_PATH:=/var/www/html}"
+: "${WORDPRESS_TABLE_PREFIX:=wp_}"
 
-# DB hazır mı? (60 sn'ye kadar, kullanıcı/şifreyle ping)
+# DB bekle
+DB_HOST="${WORDPRESS_DB_HOST%:*}"
+DB_PORT="${WORDPRESS_DB_HOST##*:}"
+[ "$DB_HOST" = "$DB_PORT" ] && DB_PORT=3306
+
+echo "[wp] Waiting for DB at ${DB_HOST}:${DB_PORT}..."
 for i in $(seq 1 60); do
-  if mysqladmin ping \
-      -h "${DB_HOST}" -P "${DB_PORT}" --protocol=TCP \
-      -u "${MYSQL_USER}" -p"$(cat /run/secrets/db_password)" >/dev/null 2>&1; then
-    break
+  if nc -z "${DB_HOST}" "${DB_PORT}"; then
+    echo "[wp] DB is up."; break
   fi
-  echo "[wp-entrypoint] Waiting for DB... (${i}/60)"
   sleep 1
 done
 
-cd "${DOCROOT}"
+# İlk kurulum (idempotent)
+if [ ! -f "${WP_PATH}/wp-config.php" ]; then
+  echo "[wp] Downloading WordPress core..."
+  mkdir -p "${WP_PATH}"
+  cd "${WP_PATH}"
 
-# wp-config yanlışsa/sorunluysa sıfırdan üret
-if [ -f "wp-config.php" ]; then
-  if ! mysql -h "${DB_HOST}" -P "${DB_PORT}" --protocol=TCP \
-       -u "${MYSQL_USER}" -p"$(cat /run/secrets/db_password)" -e "SELECT 1" >/dev/null 2>&1; then
-    echo "[wp-entrypoint] DB creds failed; recreating wp-config.php"
-    rm -f wp-config.php
-  fi
-fi
+  wp core download --allow-root
 
-# WordPress indir & config oluştur
-if [ ! -f "wp-config.php" ]; then
-  echo "[wp-entrypoint] Downloading WordPress (idempotent)..."
-  wp core download --allow-root || true
+  echo "[wp] Creating wp-config.php..."
+  wp config create \
+    --dbname="${WORDPRESS_DB_NAME}" \
+    --dbuser="${WORDPRESS_DB_USER}" \
+    --dbpass="${WORDPRESS_DB_PASSWORD}" \
+    --dbhost="${WORDPRESS_DB_HOST}" \
+    --dbprefix="${WORDPRESS_TABLE_PREFIX}" \
+    --skip-check \
+    --allow-root
 
-  echo "[wp-entrypoint] Creating wp-config.php..."
-  wp config create --allow-root \
-    --dbname="${MYSQL_DATABASE}" \
-    --dbuser="${MYSQL_USER}" \
-    --dbpass="$(cat /run/secrets/db_password)" \
-    --dbhost="${DB_HOST}:${DB_PORT}" \
-    --skip-check || true
-fi
-
-# Kurulu mu? Kur değilse kur
-if ! wp core is-installed --allow-root; then
-  echo "[wp-entrypoint] Installing WordPress..."
-  wp core install --allow-root \
+  echo "[wp] Installing site..."
+  wp core install \
     --url="${WP_URL}" \
     --title="${WP_TITLE}" \
     --admin_user="${WP_ADMIN_USER}" \
-    --admin_password="$(cat /run/secrets/credentials)" \
-    --admin_email="${WP_ADMIN_EMAIL}" || true
-else
-  echo "[wp-entrypoint] WordPress already installed."
+    --admin_password="${WP_ADMIN_PASSWORD}" \
+    --admin_email="${WP_ADMIN_EMAIL}" \
+    --skip-email \
+    --allow-root
+
+  # İkinci kullanıcı (opsiyonel)
+  if [ -n "${WP_USER:-}" ] && [ -n "${WP_USER_PASSWORD:-}" ] && [ -n "${WP_USER_EMAIL:-}" ]; then
+    wp user create "${WP_USER}" "${WP_USER_EMAIL}" \
+      --user_pass="${WP_USER_PASSWORD}" \
+      --role=author \
+      --allow-root || true
+  fi
+
+  chown -R www-data:www-data "${WP_PATH}"
 fi
 
-# izinler (Windows mount'ta sorun çıkarsa hata bastır)
-chown -R www-data:www-data "${DOCROOT}" || true
-
-# Doğru php-fpm binary'sini bul
-PHP_FPM_BIN="$(command -v php-fpm${PHP_VERSION} || true)"
-if [ -z "$PHP_FPM_BIN" ]; then
-  PHP_FPM_BIN="$(command -v php-fpm${PHP_VERSION%.*} || true)"
-fi
-if [ -z "$PHP_FPM_BIN" ]; then
-  PHP_FPM_BIN="$(command -v php-fpm || true)"
-fi
-if [ -z "$PHP_FPM_BIN" ]; then
-  echo "[wp-entrypoint] ERROR: php-fpm binary not found"; sleep 2; exit 1
-fi
-
-exec "$PHP_FPM_BIN" -F
+echo "[wp] Starting php-fpm..."
+exec /usr/sbin/php-fpm82 -F -R
