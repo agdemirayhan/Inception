@@ -1,10 +1,22 @@
-# requirements/nginx/Dockerfile
-FROM debian:bookworm-slim
+FROM alpine:3.20
+RUN apk add --no-cache nginx openssl gettext
 
-RUN apt-get update \
- && apt-get install -y --no-install-recommends nginx openssl ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# conf klasörleri
+RUN rm -f /etc/nginx/http.d/default.conf || true
+RUN mkdir -p /etc/nginx/http.d /etc/nginx/certs
 
-STOPSIGNAL SIGQUIT
-EXPOSE 80 443
-CMD ["nginx","-g","daemon off;"]
+# Ana nginx.conf (http.d/*.conf include eder)
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Site config (template)
+COPY conf/site.conf.template /etc/nginx/http.d/site.conf.template
+
+# Entrypoint'i doğru YERDEN kopyala (Docker build context = requirements/nginx)
+COPY tools/script.sh /usr/local/bin/entrypoint.sh
+
+# CRLF -> LF ve çalıştırılabilir yap
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
+ && chmod +x /usr/local/bin/entrypoint.sh
+
+EXPOSE 443
+CMD ["/usr/local/bin/entrypoint.sh"]
