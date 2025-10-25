@@ -1,30 +1,22 @@
-# **************************************************************************** #
-#                                                                              #
-#                                                         :::      ::::::::    #
-#    Makefile                                           :+:      :+:    :+:    #
-#                                                     +:+ +:+         +:+      #
-#    By: ayhan <ayhan@student.42.fr>            +#+  +:+       +#+         #
-#                                                 +#+#+#+#+#+   +#+            #
-#    Created: 2023/01/01 14:18:11 by ayhan           #+#    #+#              #
-#    Updated: 2023/01/07 01:59:32 by ayhan          ###   ########.fr        #
-#                                                                              #
-# **************************************************************************** #
+NAME = inception
+DOCKER = cd srcs && docker compose -f docker-compose.yml
 
+all: up
 
+up:
+	mkdir -p /home/ayhan/data/db
+	mkdir -p /home/ayhan/data/wp
+	$(DOCKER) up -d --build
 
-all : up
+down:
+	$(DOCKER) down
 
-up : 
-	@docker-compose -f ./srcs/docker-compose.yml up -d
+clean:
+	$(DOCKER) down -v
 
-down : 
-	@docker-compose -f ./srcs/docker-compose.yml down
+fclean: clean
+	docker system prune -af --volumes
 
-stop : 
-	@docker-compose -f ./srcs/docker-compose.yml stop
+re: fclean up
 
-start : 
-	@docker-compose -f ./srcs/docker-compose.yml start
-
-status : 
-	@docker ps
+.PHONY: all up down clean fclean re

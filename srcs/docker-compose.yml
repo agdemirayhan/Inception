@@ -1,52 +1,82 @@
-# docker-compose.yml  (sekme yok, 2 boşluk girinti)
 services:
   mariadb:
-    build: ./requirements/mariadb
-    restart: always
-    volumes:
-      - dbdata:/var/lib/mysql
+    container_name: mariadb
+    build:
+      context: ./requirements/mariadb
+    env_file:
+      - .env
     environment:
-      MARIADB_DATABASE: ${MYSQL_DATABASE}
-      MARIADB_USER: ${MYSQL_USER}
-      MARIADB_PASSWORD: ${MYSQL_PASSWORD}
-      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-    ports:
-      - "127.0.0.1:3306:3306"
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    volumes:
+      - wordpress_db:/var/lib/mysql
+    networks:
+      - inception
+    restart: always
+    secrets:
+      - db_root_password
+      - db_password
 
   wordpress:
-    build: ./requirements/wordpress
+    container_name: wordpress
+    build:
+      context: ./requirements/wordpress
+    env_file:
+      - .env
+    expose:
+      - "9000"
+    volumes:
+      - wordpress_files:/var/www/html
+    networks:
+      - inception
+    restart: always
     depends_on:
       - mariadb
-    restart: always
-    volumes:
-      - wpdata:/var/www/html
-    environment:
-      WORDPRESS_DB_HOST: ${WORDPRESS_DB_HOST}
-      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME}
-      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER}
-      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD}
-      WP_URL: ${WP_URL}
-      WP_TITLE: ${WP_TITLE}
-      WP_ADMIN_USER: ${WP_ADMIN_USER}
-      WP_ADMIN_PASSWORD: ${WP_ADMIN_PASSWORD}
-      WP_ADMIN_EMAIL: ${WP_ADMIN_EMAIL}
-      WP_USER: ${WP_USER}
-      WP_USER_PASSWORD: ${WP_USER_PASSWORD}
-      WP_USER_EMAIL: ${WP_USER_EMAIL}
+    secrets:
+      - db_password
+      - wp_admin_password
+      - wp_user_password
 
   nginx:
-    build: ./requirements/nginx
+    container_name: nginx
+    build:
+      context: ./requirements/nginx
+    ports:
+      - "443:443"
+    volumes:
+      - wordpress_files:/var/www/html
+    networks:
+      - inception
+    restart: always
     depends_on:
       - wordpress
-    restart: always
-    ports:
-      - "80:80"
-      # - "443:443"
-    volumes:
-      - wpdata:/var/www/html:ro
-    environment:
-      DOMAIN_NAME: ${DOMAIN_NAME}
+
+networks:
+  inception:
+    driver: bridge
 
 volumes:
-  dbdata:
-  wpdata:
+  wordpress_db:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DATA_PATH}/db
+      o: bind
+  wordpress_files:
+    driver: local
+    driver_opts:
+      type: none
+      device: ${DATA_PATH}/wp
+      o: bind
+
+secrets:
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  db_password:
+    file: ../secrets/db_password.txt
+  wp_admin_password:
+    file: ../secrets/wp_admin_password.txt
+  wp_user_password:
+    file: ../secrets/wp_user_password.txt
