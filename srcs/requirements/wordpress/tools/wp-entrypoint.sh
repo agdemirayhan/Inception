@@ -46,6 +46,13 @@ if [ ! -f "${WP_PATH}/wp-config.php" ]; then
     --skip-email \
     --allow-root
 
+  echo "Updating WordPress URL settings..."
+	wp option update --allow-root home "${WP_URL}" --path=/var/www/html
+	wp option update --allow-root siteurl "${WP_URL}" --path=/var/www/html
+
+	# --- Ensure title matches env file ---
+	wp option update --allow-root blogname "${WP_TITLE}" --path=/var/www/html
+
   # İkinci kullanıcı (opsiyonel)
   if [ -n "${WP_USER:-}" ] && [ -n "${WP_USER_PASSWORD:-}" ] && [ -n "${WP_USER_EMAIL:-}" ]; then
     wp user create "${WP_USER}" "${WP_USER_EMAIL}" \

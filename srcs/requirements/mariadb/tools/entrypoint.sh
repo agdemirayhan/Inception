@@ -1,11 +1,4 @@
 #!/bin/bash
-# ----------------------------------------------------------
-# MariaDB Initialization and Configuration Script
-# ----------------------------------------------------------
-# This script initializes the MariaDB data directory (if empty),
-# starts the database server, waits until it's ready,
-# and then creates the database and user with proper permissions.
-# ----------------------------------------------------------
 
 DB_DIR="/var/lib/mysql"
 
