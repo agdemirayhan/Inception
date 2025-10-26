@@ -1,22 +1,17 @@
-FROM alpine:3.20
-RUN apk add --no-cache nginx openssl gettext
+FROM debian:bookworm
 
-# conf klasörleri
-RUN rm -f /etc/nginx/http.d/default.conf || true
-RUN mkdir -p /etc/nginx/http.d /etc/nginx/certs
+RUN apt-get update && apt-get install -y nginx vim openssl curl \
+	&& rm -rf /var/lib/apt/lists/*
 
-# Ana nginx.conf (http.d/*.conf include eder)
-COPY nginx.conf /etc/nginx/nginx.conf
+RUN mkdir -p /etc/nginx/ssl
 
-# Site config (template)
-COPY conf/site.conf.template /etc/nginx/http.d/site.conf.template
+RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+	-keyout /etc/nginx/ssl/aagdemir.42.fr.key \
+	-out /etc/nginx/ssl/aagdemir.42.fr.crt \
+	-subj "/C=DE/ST=BW/L=Heilbronn/O=42/CN=aagdemir.42.fr"
 
-# Entrypoint'i doğru YERDEN kopyala (Docker build context = requirements/nginx)
-COPY tools/script.sh /usr/local/bin/entrypoint.sh
-
-# CRLF -> LF ve çalıştırılabilir yap
-RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh \
- && chmod +x /usr/local/bin/entrypoint.sh
+COPY tools/default.config /etc/nginx/sites-available/default
 
 EXPOSE 443
-CMD ["/usr/local/bin/entrypoint.sh"]
+
+CMD ["nginx", "-g", "daemon off;"]
