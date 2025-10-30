@@ -6,8 +6,8 @@ all: up
 up:
 	mkdir -p /home/ayhan/data/db
 	mkdir -p /home/ayhan/data/wp
-	$(DOCKER) up --build
-# 	$(DOCKER) up -d --builddown:
+# 	$(DOCKER) up --build
+	$(DOCKER) up -d --build
 
 down:
 	$(DOCKER) down

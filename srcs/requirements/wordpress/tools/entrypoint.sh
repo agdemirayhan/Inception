@@ -56,12 +56,6 @@ if [ ! -f /var/www/html/wp-config.php ]; then
 		--role=editor \
 		--path=/var/www/html
 
-	echo "Updating WordPress URL settings..."
-	wp option update --allow-root home "${WP_URL}" --path=/var/www/html
-	wp option update --allow-root siteurl "${WP_URL}" --path=/var/www/html
-
-	# --- Ensure title matches env file ---
-	wp option update --allow-root blogname "${WP_TITLE}" --path=/var/www/html
 fi
 
 # --- Permissions ---
